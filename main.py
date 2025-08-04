@@ -49,7 +49,7 @@ for _, row in opt_df.iterrows():
     if spec.style is ExerciseStyle.EUROPEAN:
         pricer = BlackScholes(spec)                # 解析解
     else:
-        pricer = CRRBinomial(spec, steps=500)      # 二叉树
+        pricer = CRRBinomial(spec, steps=cfg['steps'])      # 二叉树
 
     greeks = pricer.all_greeks()
     greeks["id"] = row.id.strip()
@@ -109,7 +109,7 @@ for _, row in asian_df.iterrows():
         q       = row.q,
         sigma   = row.sigma,
         opt_type= OptType[row.opt_type.strip().upper()],
-        n_obs   = int(row.n_obs),
+        n_obs   = cfg['n_obs']  # 使用配置文件中的观测次数,
     )
     pricer = AsianMC(spec, n_paths=cfg['n_path'],seed=cfg['seed'],antithetic = cfg['antithetic'])
     gk = pricer.all_greeks()
