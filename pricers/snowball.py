@@ -1,3 +1,8 @@
+# -*- coding: utf-8 -*-
+# @author: Li Yijia
+# @date: 2025/08/04
+# @filename: snowball.py
+
 """
 ==================================================================
 Autocallable Snowball Note 票据定价器  (欧系结构化)
@@ -52,7 +57,6 @@ class SnowballMC:
     n_paths: int
     seed: int = 666
     antithetic: bool = True  # 是否使用对立路径（降低方差）
-    sobol: bool = True       # 是否使用sobol 低差异序列
     # 缓存（避免重复计算）
     _cache: dict[str, float] = None
     def __post_init__(self):

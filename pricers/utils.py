@@ -1,3 +1,8 @@
+# -*- coding: utf-8 -*-
+# @author: Li Yijia
+# @date: 2025/08/04
+# @filename: utils.py
+
 from dataclasses import dataclass
 import numpy as np
 

@@ -1,2 +1,4 @@
 risk_free_rate: 0.03     # 用作全局默认 r
 seed: 666               # 随机数种子
+n_path: 10000         # 蒙特卡洛路径数
+antithetic: True  # 是否使用对立路径（降低方差）

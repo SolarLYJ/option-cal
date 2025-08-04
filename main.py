@@ -1,8 +1,15 @@
+# -*- coding: utf-8 -*-
+# @author: Li Yijia
+# @date: 2025/08/04
+# @filename: main.py
+
 """
+==================================================================
 批量定价脚本
 ----------------------------------------
 读取 data 目录下的 csv，分别定价 Vanilla 期权 & 雪球票据，
 结果打印到屏幕并保存到 results/*.csv
+==================================================================
 """
 
 import pandas as pd
@@ -75,7 +82,7 @@ for _, row in sb_df.iterrows():
         obs_freq  = row.obs_freq.strip().upper(),
     )
 
-    pricer = SnowballMC(spec, n_paths=10000,seed=cfg['seed'])
+    pricer = SnowballMC(spec, n_paths=cfg['n_path'],seed=cfg['seed'],antithetic = cfg['antithetic'])
     greeks = pricer.all_greeks()
     greeks["id"] = row.id.strip()
     sb_results.append(greeks)
