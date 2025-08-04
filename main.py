@@ -19,6 +19,7 @@ import yaml
 # ---------- pricer 模块 ------------------------------
 from pricers.vanilla import OptionSpec, OptType, ExerciseStyle, BlackScholes, CRRBinomial
 from pricers.snowball import SnowballMC, SnowballSpec, SnowballType
+from pricers.asian import AsianSpec, AsianMC, OptType
 
 DATA_DIR   = Path(__file__).parent / "data"
 RESULT_DIR = Path(__file__).parent / "results"
@@ -91,3 +92,31 @@ sb_out = pd.DataFrame(sb_results).set_index("id")
 sb_out.to_csv(RESULT_DIR / "snowballs_pricing.csv")
 print("=== Snowball Notes ===")
 print(sb_out)
+
+# ====================================================
+# 三、Asian Options
+# ====================================================
+
+asian_df = pd.read_csv(DATA_DIR / "asians.csv")
+
+asian_res = []
+for _, row in asian_df.iterrows():
+    spec = AsianSpec(
+        S0      = row.S0,
+        K       = row.K,
+        TTM       = row.TTM,
+        r       = row.r,
+        q       = row.q,
+        sigma   = row.sigma,
+        opt_type= OptType[row.opt_type.strip().upper()],
+        n_obs   = int(row.n_obs),
+    )
+    pricer = AsianMC(spec, n_paths=cfg['n_path'],seed=cfg['seed'],antithetic = cfg['antithetic'])
+    gk = pricer.all_greeks()
+    gk["id"] = row["id"].strip()
+    asian_res.append(gk)
+
+asian_out = pd.DataFrame(asian_res).set_index("id")
+asian_out.to_csv(RESULT_DIR / "asians_pricing.csv")
+print("\n=== Asian Options ===")
+print(asian_out)

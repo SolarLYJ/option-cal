@@ -1,22 +1,22 @@
 
-# 欧式、美式期权 / 雪球票据定价与希腊字母批量计算
+# 欧式、美式期权 / 亚式期权 / 雪球票据定价与希腊字母批量计算
 
->可对欧式 / 美式香草期权（基于 Black-Scholes 模型和 CRR 二叉树模型）以及自动赎回型（保本及非保本）雪球票据（基于对立路径的蒙特卡洛模拟）进行定价。通过main.py读取CSV 文件，并将价格及完整希腊字母集导出至results/*.csv文件中
+>可对欧式 / 美式香草期权（基于 Black-Scholes 模型和 CRR 二叉树模型）、亚式期权（基于控制变量蒙特卡洛）、自动赎回型（保本及非保本）雪球票据（基于对立路径的蒙特卡洛模拟）进行定价。通过main.py读取CSV 文件，并将价格及完整希腊字母集导出至results/*.csv文件中
 
 ## 目录结构
 
 option-cal/
  ├─ pricers/              # 定价核心代码
-
  │  ├─ vanilla.py         # BlackScholes & CRR，欧式、美式期权定价
- │  ├─ utils.py            # 小工具
+ │  ├─ asian.py           # 亚式期权定价期
+ │  ├─ utils.py           # 小工具
  │  └─ snowball.py        # 雪球定价（MC）
  ├─ data/                 # 数据存放文件夹
- │  ├─ options.csv
+ │  ├─ vanillas.csv
+ │  ├─ asians.csv
  │  └─ snowballs.csv
  ├─ results/              # output (auto-created)
  ├─ main.py               # 批量定价入口
-
  └─ README.md
 
 - pricers中存放定价器核心代码
@@ -30,6 +30,7 @@ option-cal/
 |------|------|------|
 | 欧式期权 | Black–Scholes closed-form / CRR binomial tree |  |
 | 美式期权 | Cox-Ross-Rubinstein (CRR) binomial tree |  |
+| 亚式期权 | Control-Variate GBM Monte-Carlo | Antithetic variance-reduction |
 | 自动赎回型雪球票据 | GBM Monte-Carlo | Antithetic variance-reduction |
 
 希腊字母均由 **bump-and-revalue** 有限差分计算  
@@ -47,6 +48,14 @@ option-cal/
 | opt_type             | `CALL` / `PUT`          |
 | style                | `EUROPEAN` / `AMERICAN` |
 
+`data/asians.csv`
+
+| 列名                           | 说明                               |
+| ------------------------------ | ---------------------------------- |
+| id                             | 唯一标识                           |
+| S0, K, TTM, q, sigma，opt_type，style  | 如上                               |
+| n_obs                       | 观测次数 (包括起始点)       |
+
 `data/snowballs.csv`
 
 | 列名                           | 说明                               |
@@ -59,7 +68,7 @@ option-cal/
 | coupon                         | 年化票息                           |
 | obs_freq                       | KO 观察频率：月/季/日['M','Q','D'] |
 
-`results/snowballs_pricing.csv`和`results/vanillas_pricing.csv`
+`results/snowballs_pricing.csv`和`results/vanillas_pricing.csv`和`results/asians_pricing.csv`
 
 | 列名    | 说明     |
 | ------- | -------- |
@@ -91,11 +100,17 @@ id price  delta   gamma  vega  theta   rho
 s00001   10119.47  0.368  0.0021 0.291 -0.0049 0.485
 s00002  9884.27  0.426  0.0023 0.318 -0.0062 0.510
 
+=== Asian Options ===
+id price  delta   gamma  vega  theta   rho
+a00001  7.59  0.61  0.048  0.21  0.012  0.71
+a00002  3.40 -0.33  0.054  0.21  0.0015 -0.635
+
 
 对应结果已写入
 
 results/vanillas_pricing.csv
 results/snowballs_pricing.csv
+results/asians_pricing.csv
 
 ## 具体说明
 
@@ -103,6 +118,7 @@ pricers包含三个核心模块：
 
 - vanilla.py：提供香草期权定价功能，包括 Black-Scholes 模型和 CRR 二叉树模型
 - snowball.py：提供雪球结构化产品（Snowball Note）的蒙特卡洛定价功能
+- asians.py：提供亚式期权的基于控制变量的蒙特卡洛定价功能
 - utils.py：提供通用工具函数，如参数扰动、随机数生成等
 
 ### 数据结构定义
@@ -288,6 +304,81 @@ pricer = SnowballMC(spec, n_paths=131072)
 res = pricer.all_greeks()
 for k, v in res.items():
     print(f"{k}: {v:.4f}")
+```
+
+#### 4. 亚式期权定价（基于控制变量的蒙特卡洛模拟）
+
+##### 功能特点
+
+- 实现了基于控制变量蒙特卡洛（Control-Variate Monte-Carlo）方法的算术平均亚式期权定价器
+- 支持欧式到期行权方式，并能计算期权的价格及主要希腊字母（delta、gamma、vega、theta、rho）
+- 控制变量法通过引入几何平均亚式期权（具有解析解）作为控制变量，有效降低了蒙特卡洛模拟的误差。
+##### 核心公式
+定价核心公式如下：
+V_A = V_A_MC + β*(V_G_analytic - V_G_MC)
+
+其中：
+
+- V_A：算术平均亚式期权的定价结果
+- V_A_MC：算术平均亚式期权的蒙特卡洛模拟结果
+- V_G_analytic：几何平均亚式期权的解析解（Kemna & Vorst 1990）
+- V_G_MC：几何平均亚式期权的蒙特卡洛模拟结果
+- β：协方差系数，β = Cov(A,G)/Var(G)
+
+##### 实现细节
+
+1. **随机路径生成**：
+   - 使用正态分布生成随机增量
+   - 支持对偶变量法（antithetic variates）以降低方差
+   - 路径生成基于几何布朗运动模型
+2. **均值计算**：
+   - 算术平均（A）：路径价格的简单平均值
+   - 几何平均（G）：路径价格的几何平均值
+3. **控制变量调整**：
+   - 计算算术平均和几何平均收益的协方差
+   - 利用几何平均的解析解对算术平均结果进行调整
+4. **希腊字母计算**：
+   - 采用中心有限差分法
+   - 价格扰动为 1 个基点（1e-4）
+   - Theta 计算基于 1 个交易日（1/252 年）的变化
+
+##### 几何平均解析解
+
+几何平均亚式期权的解析解基于 Kemna & Vorst（1990）的研究，核心参数计算如下：
+
+```plaintext
+sigma_g = sigma * sqrt((2 * N + 1) / (6 * N))
+mu_g = 0.5 * (r - q - 0.5 * sigma²) + 0.5 * sigma_g²
+```
+
+其中 N 为观测次数，在此基础上使用类似 Black-Scholes 的公式计算价格。
+
+##### 使用示例
+
+```python
+# 1. 定义期权参数
+spec = AsianSpec(
+    S0=100.0,
+    K=100.0,
+    r=0.05,
+    q=0.02,
+    sigma=0.2,
+    TTM=1.0,
+    opt_type=OptType.CALL,
+    n_obs=252  # 每日观测（1年）
+)
+
+# 2. 创建定价器
+pricer = AsianMC(spec=spec, n_paths=100000, seed=1234)
+
+# 3. 计算价格和希腊字母
+price = pricer.price()
+delta = pricer.delta()
+all_values = pricer.all_greeks()
+
+print(f"价格: {price:.4f}")
+print(f"Delta: {delta:.4f}")
+print("所有指标:", {k: f"{v:.4f}" for k, v in all_values.items()})
 ```
 
 ### 希腊字母说明
